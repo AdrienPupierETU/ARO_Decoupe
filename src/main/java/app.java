@@ -1,105 +1,98 @@
 import org.gnu.glpk.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /*
 tuto : https://gist.github.com/huberflores/2d422581dc6657badc21
  */
 
 public class app {
     public static void main(String[] args){
-        glp_prob lp;
-        SWIGTYPE_p_int ind;
-        SWIGTYPE_p_double val;
-        glp_smcp parm;
-        int ret;
+        DecoupeSolver decoupe= initDecoupe();
+        glp_prob lp=decoupe.createProb();
+        int motifSize=4;
         try{
-            lp= GLPK.glp_create_prob();
-            // creer collones
-            GLPK.glp_add_cols(lp, 15);
-            for(int i=1;i<=15;i++){
-                GLPK.glp_set_col_name(lp, i, "x"+i);
-                GLPK.glp_set_col_kind(lp, i, GLPKConstants.GLP_CV);
-                GLPK.glp_set_col_bnds(lp, i, GLPKConstants.GLP_LO, 0, 0);
-            }
-            //constrainte
-
-            //memoire
-
-            ind = GLPK.new_intArray(15); // valeur = |collone| ?
-            val = GLPK.new_doubleArray(15);
-
-            //create rows
-            GLPK.glp_add_rows(lp, 4); // 4 contrainte, 1 par nombre de rouleaux qu'il faut
-            //set row details
-            //1 contrainte
-            GLPK.glp_set_row_name(lp, 1, "c1");
-            GLPK.glp_set_row_bnds(lp, 1, GLPKConstants.GLP_LO, 97, 0); // on veut au moins 97 rouleaux a1 (45cm)
-            for(int i=1;i<=9;i++) {
-                GLPK.intArray_setitem(ind, i, i); // set dans index
-            }
-            GLPK.doubleArray_setitem(val, 1, 2); // set dans val => value
-            GLPK.doubleArray_setitem(val, 2, 1);
-            GLPK.doubleArray_setitem(val, 3, 1);
-            GLPK.doubleArray_setitem(val, 4, 1);
-            GLPK.doubleArray_setitem(val, 5, 1);
-            GLPK.doubleArray_setitem(val, 6, 1);
-            GLPK.doubleArray_setitem(val, 7, 1);
-            GLPK.doubleArray_setitem(val, 8, 1);
-            GLPK.doubleArray_setitem(val, 9, 1);
-            GLPK.glp_set_mat_row(lp, 1, 9, ind, val);
-            //2 contrainte
-            /*GLPK.glp_set_row_name(lp, 1, "c2");
-            GLPK.glp_set_row_bnds(lp, 1, GLPKConstants.GLP_LO, 610, 0);
-            GLPK.intArray_setitem(ind, 1, 2);
-            GLPK.intArray_setitem(ind, 2, 3);
-            int j=3;
-            for(int i=10;i<=15;i++) {
-                GLPK.intArray_setitem(ind, j, i);
-                j++;
-            }
-            GLPK.doubleArray_setitem(val, 2, 1);
-            GLPK.doubleArray_setitem(val, 3, 1);
-            GLPK.doubleArray_setitem(val, 10, 2);
-            GLPK.doubleArray_setitem(val, 11, 2);
-            GLPK.doubleArray_setitem(val, 12, 2);
-            GLPK.doubleArray_setitem(val, 13, 1);
-            GLPK.doubleArray_setitem(val, 14, 1);
-            GLPK.doubleArray_setitem(val, 15, 1);
-            GLPK.glp_set_mat_row(lp, 2, 8, ind, val);*/ // Pb car doit etre continu je pense
-            //3 contrainte
-
-            //4 contrainte
-
-
-
-            // Free memory
-            GLPK.delete_intArray(ind);
-            GLPK.delete_doubleArray(val);
-
-            // Define objective
-            GLPK.glp_set_obj_name(lp, "z");
-            GLPK.glp_set_obj_dir(lp, GLPKConstants.GLP_MIN);
-            GLPK.glp_set_obj_coef(lp, 0, 0);
-            for(int i=1;i<=15;i++){
-                GLPK.glp_set_obj_coef(lp, i, 1.);
-            }
-            //solve
-            parm = new glp_smcp();
-            GLPK.glp_init_smcp(parm);
-            ret = GLPK.glp_simplex(lp, parm);
-
-            // Retrieve solution
-            if (ret == 0) {
-                write_lp_solution(lp);
-            } else {
-                System.out.println("The problem could not be solved");
+            solve(lp);
+            System.out.println(GLPK.glp_get_row_dual(lp,4));
+            System.out.println(GLPK.glp_get_obj_val(lp));
+            double sacOpt=2; // Z
+            while(true){
+                List<Double> rowDual= new ArrayList<>();
+                List<Integer> newMotif= new ArrayList<>();
+                for(int i=1;i<=motifSize;i++ ){
+                       rowDual.add(GLPK.glp_get_row_dual(lp,i));
+                }
+                glp_prob sac=GLPK.glp_create_prob();
+                //mettre les bonne valeur dans obj
+                solve(sac);
+                sacOpt=GLPK.glp_get_obj_val(sac);
+                if(sacOpt<1){
+                    break;
+                }
+                for(int i=1;i<=motifSize;i++){
+                    newMotif.add((int)Math.round(GLPK.glp_get_col_prim(lp,i)));
+                }
+                decoupe.addMotif(newMotif);
+                solve(lp);
             }
 
+            write_lp_solution(lp);
             // Free memory
             GLPK.glp_delete_prob(lp);
 
         }catch (Exception e){
             e.printStackTrace();
         }
+    }
+    public static void solve(glp_prob lp){
+        glp_smcp parm;
+        int ret;
+        parm = new glp_smcp();
+        GLPK.glp_init_smcp(parm);
+        ret = GLPK.glp_simplex(lp, parm);
+        if (ret != 0) {
+            System.out.println("The problem could not be solved");
+        }
+    }
+
+    public static DecoupeSolver initDecoupe(){
+        List<Integer> coefZ = new ArrayList<>();
+        coefZ.add(1);
+        coefZ.add(1);
+        coefZ.add(1);
+        coefZ.add(1);
+        List<Integer> valueToReach= new ArrayList<>();
+        valueToReach.add(97);
+        valueToReach.add(610);
+        valueToReach.add(395);
+        valueToReach.add(211);
+        DecoupeSolver decoupe= new DecoupeSolver(coefZ,valueToReach);
+        List<Integer> collone1= new ArrayList<>();
+        collone1.add(2);
+        collone1.add(0);
+        collone1.add(0);
+        collone1.add(0);
+        decoupe.addMotif(collone1);
+        List<Integer> collone2= new ArrayList<>();
+        collone2.add(0);
+        collone2.add(2);
+        collone2.add(0);
+        collone2.add(0);
+        decoupe.addMotif(collone2);
+        List<Integer> collone3= new ArrayList<>();
+        collone3.add(0);
+        collone3.add(0);
+        collone3.add(3);
+        collone3.add(0);
+        decoupe.addMotif(collone3);
+        List<Integer> collone4= new ArrayList<>();
+        collone4.add(0);
+        collone4.add(0);
+        collone4.add(0);
+        collone4.add(7);
+        decoupe.addMotif(collone4);
+        return decoupe;
     }
     /** credit to : https://gist.github.com/huberflores/2d422581dc6657badc21
      * write simplex solution
