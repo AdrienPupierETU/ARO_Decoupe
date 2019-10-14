@@ -8,6 +8,7 @@ public class DecoupeSolver {
     private List<Integer> CoefZ= new ArrayList<>();
     private List<Integer> valueToReach= new ArrayList<>();
     private glp_prob lp;
+
     public DecoupeSolver( List<Integer> coefZ, List<Integer> valueToReach) {
         CoefZ = coefZ;
         this.valueToReach = valueToReach;
@@ -28,6 +29,7 @@ public class DecoupeSolver {
         }
         return lp;
     }
+
     private void setContrainte(){
         SWIGTYPE_p_int ind;
         SWIGTYPE_p_double val;
