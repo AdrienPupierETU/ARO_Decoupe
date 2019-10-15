@@ -5,32 +5,43 @@ import java.util.List;
 
 public class DecoupeSolver {
     private List<List<Integer>> matriceMotif= new ArrayList<>();
-    private List<Integer> CoefZ= new ArrayList<>();
-    private List<Integer> valueToReach= new ArrayList<>();
-    private glp_prob lp;
+    private List<Integer> coefZ;
+    private List<Integer> valueToReach;
 
     public DecoupeSolver( List<Integer> coefZ, List<Integer> valueToReach) {
-        CoefZ = coefZ;
+        this.coefZ = coefZ;
         this.valueToReach = valueToReach;
-        lp=GLPK.glp_create_prob();
     }
 
     public void addMotif(List<Integer> motif){
         matriceMotif.add(motif);
     }
+    public void addCoefz(int coef){
+        coefZ.add(coef);
+    }
 
     public glp_prob createProb(){
-        setContrainte();
+        glp_prob lp=GLPK.glp_create_prob();
+        setContrainte(lp);
         GLPK.glp_set_obj_name(lp, "z");
         GLPK.glp_set_obj_dir(lp, GLPKConstants.GLP_MIN);
-        for(int i=1;i<=CoefZ.size();i++){ //
-            int value=CoefZ.get(i-1);
+        for(int i = 1; i<= coefZ.size(); i++){ //
+            int value= coefZ.get(i-1);
             GLPK.glp_set_obj_coef(lp, i, value);
         }
         return lp;
     }
+    public void printMotif(){
+        for(int i=0;i<matriceMotif.get(0).size();i++){
+            for(int j=0;j<matriceMotif.size();j++){
+                System.out.print(" "+matriceMotif.get(j).get(i)+" ");
+            }
+            System.out.println("");
+        }
 
-    private void setContrainte(){
+    }
+
+    private void setContrainte(glp_prob lp){
         SWIGTYPE_p_int ind;
         SWIGTYPE_p_double val;
         GLPK.glp_add_cols(lp, matriceMotif.size());
@@ -39,8 +50,8 @@ public class DecoupeSolver {
             GLPK.glp_set_col_bnds(lp, i, GLPKConstants.GLP_LO, 0, 0);
             GLPK.glp_set_col_name(lp, i, "x"+i);
         }
-        ind = GLPK.new_intArray(matriceMotif.size()); // valeur = |collone| ?
-        val = GLPK.new_doubleArray(matriceMotif.size());
+        ind = GLPK.new_intArray(matriceMotif.size()+1); // valeur = |collone| ?
+        val = GLPK.new_doubleArray(matriceMotif.size()+1);
         GLPK.glp_add_rows(lp, matriceMotif.get(0).size());
 
         for(int i=1;i<=matriceMotif.get(0).size();i++){ // pour chaque ligne et donc chaque contrainte
@@ -57,7 +68,9 @@ public class DecoupeSolver {
             GLPK.glp_set_mat_row(lp, i, matriceMotif.size(), ind, val);
         }
         GLPK.delete_intArray(ind);
+        System.out.println("bug here");
         GLPK.delete_doubleArray(val);
+        System.out.println("salut");
     }
 
 
